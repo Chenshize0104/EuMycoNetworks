@@ -11,6 +11,7 @@ library(DHARMa)
 library(effects)
 library(gridExtra)
 library(cowplot)
+library(car)
 
 rm(list=ls())
 
@@ -181,6 +182,22 @@ richness$Plot <- as.factor(richness$Plot)
 richness$Plot <- as.factor(richness$Plot)
 summary(richness)
 
+# 如果Shapiro-Wilk检验的p值小于0.05，说明数据不符合正态分布。以下结果大于0.05，符合正态分布。
+shapiro.test(richness$Plant_richness)
+
+# Levene检验的p值如果大于0.05，说明各组之间方差齐性，可以进行方差分析，否则变换数据或选择非参数检验。
+leveneTest(Plant_richness~Plot, data = richness)
+
+# 方差分析
+anova_result <- aov(Plant_richness~Plot, data = richness)
+summary(anova_result)
+
+
+# 非参数检验（Kruskal-Wallis检验）
+kruskal_test <- kruskal.test(Plant_richness~Plot, data = richness)
+# 输出检验结果
+kruskal_test
+
 # Plant_richness 比较Plot间植物richness是在统计上否有显著性差异
 {
   Euadjacent.plot <- subset(richness,Plot=="Eu-adjacent")
@@ -192,6 +209,8 @@ summary(richness)
   mean(x);mean(y)
   sd(x);sd(y)
   var(x);var(y)
+  shapiro.test(x)
+  shapiro.test(y)
 }
 
 # library(lme4)
@@ -217,6 +236,11 @@ summary(modlmer1)
 performance::r2(modlmer1)
 allEffects(modlmer1)
 plot(allEffects(modlmer1))
+
+Anova(modlmer1,type=2)
+
+Anova(modlmer2,type=2)
+
 
 ##
 modlmer1 <- glmmTMB(log(Plant_richness) ~ Plot, data=richness)
@@ -256,7 +280,7 @@ p1 <- ggplot(richness,aes(x=Plot,y=Plant_richness,color=Plot))+
         legend.text=element_text(size=6.5),#修改图例文本大小
         legend.position="none")+#修改图例位置
   # annotate("text",x=1.7,y=max(richness$Plant_richness),hjust=1,vjust=1,label=paste0("p > ",0.05),size=2)+
-  annotate("text",x=1.5,y=(max(richness$Plant_richness)+(max(richness$Plant_richness)-min(richness$Plant_richness))*0.2),hjust=1,vjust=1,label=paste0("NS"),size=2)
+  annotate("text",x=1.5,y=(max(richness$Plant_richness)+(max(richness$Plant_richness)-min(richness$Plant_richness))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2)
 p1
 
 ggsave(filename="Fig4a_plant_richness_glmm.png",plot=p1,width=89/2,height=59/2,units="mm",dpi=900)
@@ -275,7 +299,11 @@ ggsave(filename="Fig4a_plant_richness_glmm.pdf",plot=p1,width=89/2,height=59/2,u
   mean(x);mean(y)
   sd(x);sd(y)
   var(x);var(y)
+  shapiro.test(x)
+  shapiro.test(y)
 }
+
+leveneTest(`Aboveground_biomass (kg/m2)`~Plot, data = richness)
 
 # mod1 <- glm(`Aboveground_biomass (kg/m2)` ~ Plot, family=Gamma(link="log"), data=richness)
 # mod2 <- glmer(`Aboveground_biomass (kg/m2)` ~ Plot + (1|Site), family=Gamma(link="log"), data=richness)
@@ -301,6 +329,9 @@ performance::r2(modlmer2)
 allEffects(modlmer2)
 plot(allEffects(modlmer2))
 
+Anova(modlmer2,type=2)
+
+
 # Belowground_biomass
 {
   Euadjacent.plot <- subset(richness,Plot=="Eu-adjacent")
@@ -312,7 +343,11 @@ plot(allEffects(modlmer2))
   mean(x);mean(y)
   sd(x);sd(y)
   var(x);var(y)
+  shapiro.test(x)
+  shapiro.test(y)
 }
+
+leveneTest(`Belowground_biomass (kg/m2)`~Plot, data = richness)
 
 modlmer1 <- glmmTMB(`Belowground_biomass (kg/m2)`~Plot,family=Gamma(link="log"),data=richness)
 modlmer2 <- glmmTMB(`Belowground_biomass (kg/m2)`~Plot+(1|Site),family=Gamma(link="log"),data=richness)
@@ -329,6 +364,8 @@ summary(modlmer2)
 performance::r2(modlmer2)
 allEffects(modlmer2)
 plot(allEffects(modlmer2))
+
+Anova(modlmer2,type=2)
 
 biomass <- richness[,c("Site","Plot","PlotID","Aboveground_biomass (kg/m2)","Belowground_biomass (kg/m2)")]
 colnames(biomass) <- c("Site","Plot","PlotID","Aboveground_biomass","Belowground_biomass")
@@ -392,7 +429,11 @@ ggsave(filename="Fig4b_biomass_glmm.pdf",plot=p2,width=89/2,height=59/2,units="m
   mean(x);mean(y)
   sd(x);sd(y)
   var(x);var(y)
+  shapiro.test(x)
+  shapiro.test(y)
 }
+
+leveneTest(AMF_richness~Plot, data = richness)
 
 modlmer1 <- glmmTMB(AMF_richness ~ Plot, family=poisson, data=richness)
 modlmer2 <- glmmTMB(AMF_richness ~ Plot + (1|Site), family=poisson, data=richness)
@@ -409,73 +450,104 @@ performance::r2(modlmer4)
 allEffects(modlmer4)
 plot(allEffects(modlmer4))
 
-{
-  Euadjacent.plot <- subset(richness,Plot=="Eu-adjacent")
-  Eudistant.plot <- subset(richness,Plot=="Eu-distant")
-  Euadjacent.plot$PlotID==Eudistant.plot$PlotID
-  x <- Euadjacent.plot$AMF_richness_Euphorbia_excluded
-  y <- Eudistant.plot$AMF_richness_Euphorbia_excluded
-  t.test(x,y,paired=T)
-  mean(x);mean(y)
-  sd(x);sd(y)
-  var(x);var(y)
-}
+Anova(modlmer4,type=2)
 
-modlmer1 <- glmmTMB(AMF_richness_Euphorbia_excluded ~ Plot, family=poisson, data=richness)
-modlmer2 <- glmmTMB(AMF_richness_Euphorbia_excluded ~ Plot + (1|Site), family=poisson, data=richness)
-(msAICc <- model.sel(modlmer1,modlmer2))
+# {
+#   Euadjacent.plot <- subset(richness,Plot=="Eu-adjacent")
+#   Eudistant.plot <- subset(richness,Plot=="Eu-distant")
+#   Euadjacent.plot$PlotID==Eudistant.plot$PlotID
+#   x <- Euadjacent.plot$AMF_richness_Euphorbia_excluded
+#   y <- Eudistant.plot$AMF_richness_Euphorbia_excluded
+#   t.test(x,y,paired=T)
+#   mean(x);mean(y)
+#   sd(x);sd(y)
+#   var(x);var(y)
+# }
+# 
+# modlmer1 <- glmmTMB(AMF_richness_Euphorbia_excluded ~ Plot, family=poisson, data=richness)
+# modlmer2 <- glmmTMB(AMF_richness_Euphorbia_excluded ~ Plot + (1|Site), family=poisson, data=richness)
+# (msAICc <- model.sel(modlmer1,modlmer2))
+# 
+# modlmer3 <- glmmTMB(AMF_richness_Euphorbia_excluded ~ Plot + (1|Site), family=nbinom2, data=richness)
+# modlmer4 <- glmmTMB(AMF_richness_Euphorbia_excluded ~ Plot + (1|Site), family=nbinom1, data=richness)
+# (msAICc <- model.sel(modlmer2,modlmer3,modlmer4))
+# 
+# plot(simulateResiduals(modlmer4))
+# 
+# summary(modlmer4)
+# performance::r2(modlmer4)
+# allEffects(modlmer4)
+# plot(allEffects(modlmer4))
+# 
+# richness.AMF <- richness[,c("Site","Plot","PlotID","AMF_richness","AMF_richness_Euphorbia_excluded")]
+# richness.AMF_long <- pivot_longer(richness.AMF, cols = c(AMF_richness, AMF_richness_Euphorbia_excluded), names_to = "Type", values_to = "AMF_richness")
+# 
+# richness.AMF_long[which(richness.AMF_long$Type=="AMF_richness"),]$Type <- "included"
+# richness.AMF_long[which(richness.AMF_long$Type=="AMF_richness_Euphorbia_excluded"),]$Type <- "excluded"
+# richness.AMF_long$Type <- factor(richness.AMF_long$Type,levels=c("included","excluded"))
+# 
+# # 计算均值和标准差
+# richness.AMF_long.summary <- richness.AMF_long %>%
+#   group_by(Plot, Type) %>%
+#   summarise(AMF_richness.mean = mean(AMF_richness),AMF_richness.sd = sd(AMF_richness))
+# 
+# p3 <- ggplot(richness.AMF_long,aes(x=Plot,y=AMF_richness,,color=Type))+
+#   geom_boxplot(width=0.25,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+#   stat_boxplot(geom="errorbar",width=0.25,linewidth=0.25,position=position_dodge(0.5))+
+#   geom_jitter(shape=16,size=0.4,position=position_jitterdodge(jitter.height=0,jitter.width=0.4,dodge.width=0.5),alpha=0.4,show.legend=T)+
+#   theme_classic()+
+#   scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
+#   scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+#   ylab("AMF richness")+
+#   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
+#   theme(axis.title.x=element_blank(),#修改X轴标题文本
+#         # axis.title.x=element_text(size=8),#修改X轴标题文本
+#         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
+#         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
+#         # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
+#         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
+#         panel.grid=element_blank(),#隐藏网格线
+#         # legend.title=element_text(size=6.5),#修改图例标题大小
+#         legend.title=element_blank(),#修改图例标题大小
+#         legend.text=element_text(size=5.5),#修改图例文本大小
+#         legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
+#         legend.background=element_blank(),#设置图例背景为空白
+#         legend.position="inside",#修改图例位置
+#         # legend.justification=c("right","top"),#修改图例位置
+#         legend.position.inside=c(0.9,0.9),#修改图例位置
+#         legend.margin=margin(0,0,0,0))+#修改图例位置
+#   # annotate("text",x=1.9,y=max(richness.AMF_long$AMF_richness)*0.85,hjust=1,vjust=1,label=paste0("p > ",0.05),size=2,color="black")+
+#   annotate("text",x=1.5,y=(max(richness.AMF_long$AMF_richness)+(max(richness.AMF_long$AMF_richness)-min(richness.AMF_long$AMF_richness))*0.2),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
+#   annotate("text",x=1.5+0.2,y=(max(richness.AMF_long$AMF_richness)+(max(richness.AMF_long$AMF_richness)-min(richness.AMF_long$AMF_richness))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")
+# p3
 
-modlmer3 <- glmmTMB(AMF_richness_Euphorbia_excluded ~ Plot + (1|Site), family=nbinom2, data=richness)
-modlmer4 <- glmmTMB(AMF_richness_Euphorbia_excluded ~ Plot + (1|Site), family=nbinom1, data=richness)
-(msAICc <- model.sel(modlmer2,modlmer3,modlmer4))
-
-plot(simulateResiduals(modlmer4))
-
-summary(modlmer4)
-performance::r2(modlmer4)
-allEffects(modlmer4)
-plot(allEffects(modlmer4))
-
-richness.AMF <- richness[,c("Site","Plot","PlotID","AMF_richness","AMF_richness_Euphorbia_excluded")]
-richness.AMF_long <- pivot_longer(richness.AMF, cols = c(AMF_richness, AMF_richness_Euphorbia_excluded), names_to = "Type", values_to = "AMF_richness")
-
-richness.AMF_long[which(richness.AMF_long$Type=="AMF_richness"),]$Type <- "included"
-richness.AMF_long[which(richness.AMF_long$Type=="AMF_richness_Euphorbia_excluded"),]$Type <- "excluded"
-richness.AMF_long$Type <- factor(richness.AMF_long$Type,levels=c("included","excluded"))
-
-# 计算均值和标准差
-richness.AMF_long.summary <- richness.AMF_long %>%
-  group_by(Plot, Type) %>%
-  summarise(AMF_richness.mean = mean(AMF_richness),AMF_richness.sd = sd(AMF_richness))
-
-p3 <- ggplot(richness.AMF_long,aes(x=Plot,y=AMF_richness,,color=Type))+
-  geom_boxplot(width=0.25,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
-  stat_boxplot(geom="errorbar",width=0.25,linewidth=0.25,position=position_dodge(0.5))+
-  geom_jitter(shape=16,size=0.4,position=position_jitterdodge(jitter.height=0,jitter.width=0.4,dodge.width=0.5),alpha=0.4,show.legend=T)+
+p3 <- ggplot(richness,aes(x=Plot,y=AMF_richness,color=Plot))+
+  geom_boxplot(width=0.15,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  stat_boxplot(geom="errorbar",width=0.15,linewidth=0.25,position=position_dodge(0.5))+
+  geom_jitter(shape=16,size=0.4,position=position_jitterdodge(jitter.height=0.25,jitter.width=0.45,dodge.width=0.5),alpha=0.4,show.legend=T)+
+  # geom_point(aes(x=Plot,y=mean(Plant_richness)),shape=16,size=0.8,color="black",position=position_dodge(0.5),alpha=1)+
+  # geom_errorbar(aes(x=Plot,y=mean(Plant_richness),ymin=mean(Plant_richness)-sd(Plant_richness), ymax=mean(Plant_richness)+sd(Plant_richness)),width=0,linewidth=0.4,color="black",position=position_dodge(0.5),alpha=1)+
+  # scale_color_manual(values=c("#bc40bf","#bc40bf","black"))+
+  # scale_fill_manual(values=c("#bc40bf","#bc40bf"))+ 
+  scale_color_manual(values=c("gray40","gray40","gray40"))+
+  scale_fill_manual(values=c("gray40","gray40"))+ 
   theme_classic()+
-  scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
-  scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
   ylab("AMF richness")+
   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
+  # scale_y_continuous(labels = function(x) sprintf("%03d", x))+
   theme(axis.title.x=element_blank(),#修改X轴标题文本
         # axis.title.x=element_text(size=8),#修改X轴标题文本
+        # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
-        # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
+        # axis.text.x=element_blank(),#修改x轴刻度标签文本
         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
         panel.grid=element_blank(),#隐藏网格线
-        # legend.title=element_text(size=6.5),#修改图例标题大小
-        legend.title=element_blank(),#修改图例标题大小
-        legend.text=element_text(size=5.5),#修改图例文本大小
-        legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
-        legend.background=element_blank(),#设置图例背景为空白
-        legend.position="inside",#修改图例位置
-        # legend.justification=c("right","top"),#修改图例位置
-        legend.position.inside=c(0.9,0.9),#修改图例位置
-        legend.margin=margin(0,0,0,0))+#修改图例位置
-  # annotate("text",x=1.9,y=max(richness.AMF_long$AMF_richness)*0.85,hjust=1,vjust=1,label=paste0("p > ",0.05),size=2,color="black")+
-  annotate("text",x=1.5,y=(max(richness.AMF_long$AMF_richness)+(max(richness.AMF_long$AMF_richness)-min(richness.AMF_long$AMF_richness))*0.2),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
-  annotate("text",x=1.5+0.2,y=(max(richness.AMF_long$AMF_richness)+(max(richness.AMF_long$AMF_richness)-min(richness.AMF_long$AMF_richness))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")
+        legend.title=element_text(size=8),#修改图例标题大小
+        legend.text=element_text(size=6.5),#修改图例文本大小
+        legend.position="none")+#修改图例位置
+  # annotate("text",x=1.7,y=max(richness$AMF_richness),hjust=1,vjust=1,label=paste0("p > ",0.05),size=2)+
+  annotate("text",x=1.5,y=(max(richness$AMF_richness)+(max(richness$AMF_richness)-min(richness$AMF_richness))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2)
 p3
 
 ggsave(filename="Fig4c_AMF_richness_glmm.png",plot=p3,width=89/2,height=59/2,units="mm",dpi=900)
@@ -493,7 +565,11 @@ ggsave(filename="Fig4c_AMF_richness_glmm.pdf",plot=p3,width=89/2,height=59/2,uni
   mean(x);mean(y)
   sd(x);sd(y)
   var(x);var(y)
+  shapiro.test(x)
+  shapiro.test(y)
 }
+
+leveneTest(Interaction_number~Plot, data = richness)
 
 modlmer1 <- glmmTMB(Interaction_number ~ Plot, family=poisson, data=richness)
 modlmer2 <- glmmTMB(Interaction_number ~ Plot + (1|Site), family=poisson, data=richness)
@@ -510,73 +586,104 @@ performance::r2(modlmer4)
 allEffects(modlmer4)
 plot(allEffects(modlmer4))
 
-{
-  Euadjacent.plot <- subset(richness,Plot=="Eu-adjacent")
-  Eudistant.plot <- subset(richness,Plot=="Eu-distant")
-  Euadjacent.plot$PlotID==Eudistant.plot$PlotID
-  x <- Euadjacent.plot$Interaction_number_Euphorbia_excluded
-  y <- Eudistant.plot$Interaction_number_Euphorbia_excluded
-  t.test(x,y,paired=T)
-  mean(x);mean(y)
-  sd(x);sd(y)
-  var(x);var(y)
-}
+Anova(modlmer4,type=2)
 
-modlmer1 <- glmmTMB(Interaction_number_Euphorbia_excluded ~ Plot, family=poisson, data=richness)
-modlmer2 <- glmmTMB(Interaction_number_Euphorbia_excluded ~ Plot + (1|Site), family=poisson, data=richness)
-(msAICc <- model.sel(modlmer1,modlmer2))
+# {
+#   Euadjacent.plot <- subset(richness,Plot=="Eu-adjacent")
+#   Eudistant.plot <- subset(richness,Plot=="Eu-distant")
+#   Euadjacent.plot$PlotID==Eudistant.plot$PlotID
+#   x <- Euadjacent.plot$Interaction_number_Euphorbia_excluded
+#   y <- Eudistant.plot$Interaction_number_Euphorbia_excluded
+#   t.test(x,y,paired=T)
+#   mean(x);mean(y)
+#   sd(x);sd(y)
+#   var(x);var(y)
+# }
+# 
+# modlmer1 <- glmmTMB(Interaction_number_Euphorbia_excluded ~ Plot, family=poisson, data=richness)
+# modlmer2 <- glmmTMB(Interaction_number_Euphorbia_excluded ~ Plot + (1|Site), family=poisson, data=richness)
+# (msAICc <- model.sel(modlmer1,modlmer2))
+# 
+# modlmer3 <- glmmTMB(Interaction_number_Euphorbia_excluded ~ Plot + (1|Site), family=nbinom2, data=richness)
+# modlmer4 <- glmmTMB(Interaction_number_Euphorbia_excluded ~ Plot + (1|Site), family=nbinom1, data=richness)
+# (msAICc <- model.sel(modlmer2,modlmer3,modlmer4))
+# 
+# plot(simulateResiduals(modlmer4))
+# 
+# summary(modlmer4)
+# performance::r2(modlmer4)
+# allEffects(modlmer4)
+# plot(allEffects(modlmer4))
+# 
+# richness.interaction <- richness[,c("Site","Plot","PlotID","Interaction_number","Interaction_number_Euphorbia_excluded")]
+# richness.interaction_long <- pivot_longer(richness.interaction, cols = c(Interaction_number, Interaction_number_Euphorbia_excluded), names_to = "Type", values_to = "Interaction_number")
+# 
+# richness.interaction_long[which(richness.interaction_long$Type=="Interaction_number"),]$Type <- "included"
+# richness.interaction_long[which(richness.interaction_long$Type=="Interaction_number_Euphorbia_excluded"),]$Type <- "excluded"
+# richness.interaction_long$Type <- factor(richness.interaction_long$Type,levels=c("included","excluded"))
+# 
+# # 计算均值和标准差
+# richness.interaction_long.summary <- richness.interaction_long %>%
+#   group_by(Plot, Type) %>%
+#   summarise(Interaction_number.mean = mean(Interaction_number),Interaction_number.sd = sd(Interaction_number))
+# 
+# p4 <- ggplot(richness.interaction_long,aes(x=Plot,y=Interaction_number,color=Type))+
+#   geom_boxplot(width=0.25,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+#   stat_boxplot(geom="errorbar",width=0.25,linewidth=0.25,position=position_dodge(0.5))+
+#   geom_jitter(shape=16,size=0.4,position=position_jitterdodge(jitter.height=0,jitter.width=0.4,dodge.width=0.5),alpha=0.4,show.legend=T)+
+#   theme_classic()+
+#   scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
+#   scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+#   ylab("Number of interaction")+
+#   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
+#   theme(axis.title.x=element_blank(),#修改X轴标题文本
+#         # axis.title.x=element_text(size=8),#修改X轴标题文本
+#         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
+#         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
+#         # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
+#         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
+#         panel.grid=element_blank(),#隐藏网格线
+#         # legend.title=element_text(size=6.5),#修改图例标题大小
+#         legend.title=element_blank(),#修改图例标题大小
+#         legend.text=element_text(size=5.5),#修改图例文本大小
+#         legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
+#         legend.background=element_blank(),#设置图例背景为空白
+#         legend.position="inside",#修改图例位置
+#         # legend.justification=c("right","top"),#修改图例位置
+#         legend.position.inside=c(0.9,0.9),#修改图例位置
+#         legend.margin=margin(0,0,0,0))+#修改图例位置
+#   # annotate("text",x=2,y=max(richness.interaction_long$Interaction_number)*0.85,hjust=1,vjust=1,label=paste0("p > 0.05"," / ","p < 0.01"),size=2,color="black")+
+#   annotate("text",x=1.5,y=(max(richness.interaction_long$Interaction_number)+(max(richness.interaction_long$Interaction_number)-min(richness.interaction_long$Interaction_number))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
+#   annotate("text",x=1.5+0.2,y=(max(richness.interaction_long$Interaction_number)),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")
+# p4
 
-modlmer3 <- glmmTMB(Interaction_number_Euphorbia_excluded ~ Plot + (1|Site), family=nbinom2, data=richness)
-modlmer4 <- glmmTMB(Interaction_number_Euphorbia_excluded ~ Plot + (1|Site), family=nbinom1, data=richness)
-(msAICc <- model.sel(modlmer2,modlmer3,modlmer4))
-
-plot(simulateResiduals(modlmer4))
-
-summary(modlmer4)
-performance::r2(modlmer4)
-allEffects(modlmer4)
-plot(allEffects(modlmer4))
-
-richness.interaction <- richness[,c("Site","Plot","PlotID","Interaction_number","Interaction_number_Euphorbia_excluded")]
-richness.interaction_long <- pivot_longer(richness.interaction, cols = c(Interaction_number, Interaction_number_Euphorbia_excluded), names_to = "Type", values_to = "Interaction_number")
-
-richness.interaction_long[which(richness.interaction_long$Type=="Interaction_number"),]$Type <- "included"
-richness.interaction_long[which(richness.interaction_long$Type=="Interaction_number_Euphorbia_excluded"),]$Type <- "excluded"
-richness.interaction_long$Type <- factor(richness.interaction_long$Type,levels=c("included","excluded"))
-
-# 计算均值和标准差
-richness.interaction_long.summary <- richness.interaction_long %>%
-  group_by(Plot, Type) %>%
-  summarise(Interaction_number.mean = mean(Interaction_number),Interaction_number.sd = sd(Interaction_number))
-
-p4 <- ggplot(richness.interaction_long,aes(x=Plot,y=Interaction_number,color=Type))+
-  geom_boxplot(width=0.25,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
-  stat_boxplot(geom="errorbar",width=0.25,linewidth=0.25,position=position_dodge(0.5))+
-  geom_jitter(shape=16,size=0.4,position=position_jitterdodge(jitter.height=0,jitter.width=0.4,dodge.width=0.5),alpha=0.4,show.legend=T)+
+p4 <- ggplot(richness,aes(x=Plot,y=Interaction_number,color=Plot))+
+  geom_boxplot(width=0.15,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  stat_boxplot(geom="errorbar",width=0.15,linewidth=0.25,position=position_dodge(0.5))+
+  geom_jitter(shape=16,size=0.4,position=position_jitterdodge(jitter.height=0.25,jitter.width=0.45,dodge.width=0.5),alpha=0.4,show.legend=T)+
+  # geom_point(aes(x=Plot,y=mean(Plant_richness)),shape=16,size=0.8,color="black",position=position_dodge(0.5),alpha=1)+
+  # geom_errorbar(aes(x=Plot,y=mean(Plant_richness),ymin=mean(Plant_richness)-sd(Plant_richness), ymax=mean(Plant_richness)+sd(Plant_richness)),width=0,linewidth=0.4,color="black",position=position_dodge(0.5),alpha=1)+
+  # scale_color_manual(values=c("#bc40bf","#bc40bf","black"))+
+  # scale_fill_manual(values=c("#bc40bf","#bc40bf"))+ 
+  scale_color_manual(values=c("gray40","gray40","gray40"))+
+  scale_fill_manual(values=c("gray40","gray40"))+ 
   theme_classic()+
-  scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
-  scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
   ylab("Number of interaction")+
   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
+  # scale_y_continuous(labels = function(x) sprintf("%03d", x))+
   theme(axis.title.x=element_blank(),#修改X轴标题文本
         # axis.title.x=element_text(size=8),#修改X轴标题文本
+        # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
-        # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
+        # axis.text.x=element_blank(),#修改x轴刻度标签文本
         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
         panel.grid=element_blank(),#隐藏网格线
-        # legend.title=element_text(size=6.5),#修改图例标题大小
-        legend.title=element_blank(),#修改图例标题大小
-        legend.text=element_text(size=5.5),#修改图例文本大小
-        legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
-        legend.background=element_blank(),#设置图例背景为空白
-        legend.position="inside",#修改图例位置
-        # legend.justification=c("right","top"),#修改图例位置
-        legend.position.inside=c(0.9,0.9),#修改图例位置
-        legend.margin=margin(0,0,0,0))+#修改图例位置
-  # annotate("text",x=2,y=max(richness.interaction_long$Interaction_number)*0.85,hjust=1,vjust=1,label=paste0("p > 0.05"," / ","p < 0.01"),size=2,color="black")+
-  annotate("text",x=1.5,y=(max(richness.interaction_long$Interaction_number)+(max(richness.interaction_long$Interaction_number)-min(richness.interaction_long$Interaction_number))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
-  annotate("text",x=1.5+0.2,y=(max(richness.interaction_long$Interaction_number)),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")
+        legend.title=element_text(size=8),#修改图例标题大小
+        legend.text=element_text(size=6.5),#修改图例文本大小
+        legend.position="none")+#修改图例位置
+  # annotate("text",x=1.7,y=max(richness$Interaction_number),hjust=1,vjust=1,label=paste0("p > ",0.05),size=2)+
+  annotate("text",x=1.5,y=(max(richness$Interaction_number)+(max(richness$Interaction_number)-min(richness$Interaction_number))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2)
 p4
 
 ggsave(filename="Fig4d_interaction_number_glmm.png",plot=p4,width=89/2,height=59/2,units="mm",dpi=900)
@@ -584,8 +691,8 @@ ggsave(filename="Fig4d_interaction_number_glmm.pdf",plot=p4,width=89/2,height=59
 
 p_all <- plot_grid(p1,p2,p3,p4,labels=c("a","b","c","d"),label_size=8,label_x=0.25,label_y=1,ncol=2,nrow=2)
 p_all
-ggsave(filename="Fig4.png",plot=p_all,width=89,height=59,units="mm",dpi=900)
-ggsave(filename="Fig4.pdf",plot=p_all,width=89,height=59,units="mm")
+ggsave(filename="Fig4_0127.png",plot=p_all,width=89,height=59,units="mm",dpi=900)
+ggsave(filename="Fig4_0127.pdf",plot=p_all,width=89,height=59,units="mm")
 
 ################################################################################
 # Fig. 5 Beta_diversity
@@ -604,7 +711,16 @@ summary(Beta_diversity)
 plant_beta <- subset(Beta_diversity,Beta_diversity_type=="Plant_beta_diversity")
 x <- subset(plant_beta,Components=="Turnover")$Observe
 y <- subset(plant_beta,Components=="Nestedness")$Observe
+shapiro.test(x)
+shapiro.test(y)
+levene_test <- leveneTest(Observe ~ Components, data = plant_beta)
+levene_test
 t.test(x,y,paired=T)
+
+d <- x-y
+# 进行Welch's t检验
+result_welch <- t.test(d, mu = 0, alternative = "two.sided", var.equal = FALSE)
+result_welch
 
 # 计算均值和标准差
 plant_beta_combined <- plant_beta %>%
@@ -640,24 +756,58 @@ ggsave(filename="Fig5a_plant_beta_diversity.pdf",plot=p1,width=89/2,height=59/2,
 AMF_beta <- subset(Beta_diversity,Beta_diversity_type=="AMF_beta_diversity")
 x <- subset(AMF_beta,Components=="Turnover")$Observe_Euphorbia_excluded
 y <- subset(AMF_beta,Components=="Nestedness")$Observe_Euphorbia_excluded
+shapiro.test(x)
+shapiro.test(y)
+levene_test <- leveneTest(Observe ~ Components, data = AMF_beta)
+levene_test
 t.test(x,y,paired=T)
 
-AMF_beta_long <- pivot_longer(AMF_beta, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
-AMF_beta_long[which(AMF_beta_long$Type=="Observe"),]$Type <- "included"
-AMF_beta_long[which(AMF_beta_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
-AMF_beta_long$Type <- factor(AMF_beta_long$Type,levels=c("included","excluded"))
 
-# 计算均值和标准差
-AMF_beta_long.summary <- AMF_beta_long %>%
-  group_by(Components, Type) %>%
-  summarise(Value.mean = mean(Value),Value.sd = sd(Value))
+# AMF_beta_long <- pivot_longer(AMF_beta, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
+# AMF_beta_long[which(AMF_beta_long$Type=="Observe"),]$Type <- "included"
+# AMF_beta_long[which(AMF_beta_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
+# AMF_beta_long$Type <- factor(AMF_beta_long$Type,levels=c("included","excluded"))
+# 
+# # 计算均值和标准差
+# AMF_beta_long.summary <- AMF_beta_long %>%
+#   group_by(Components, Type) %>%
+#   summarise(Value.mean = mean(Value),Value.sd = sd(Value))
+# 
+# p2 <- ggplot(AMF_beta_long,aes(x=Components,y=Value,color=Type))+
+#   geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+#   stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
+#   geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+#   scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
+#   scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+#   theme_classic()+
+#   ylab("AMF beta diversity")+# 设置Y轴标题
+#   geom_vline(xintercept=1.5,linetype=2,linewidth=0.2,color="gray50",alpha=0.8)+
+#   theme(axis.title.x=element_blank(),#修改X轴标题文本
+#         # axis.title.x=element_text(size=8),#修改X轴标题文本
+#         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
+#         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
+#         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
+#         panel.grid=element_blank(),#隐藏网格线
+#         # legend.title=element_text(size=6.5),#修改图例标题大小
+#         legend.title=element_blank(),
+#         legend.text=element_text(size=5.5),#修改图例文本大小
+#         legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
+#         legend.background=element_blank(),#设置图例背景为空白
+#         legend.position="inside",#修改图例位置
+#         # legend.justification=c("right","top"),#修改图例位置
+#         legend.position.inside=c(0.9,0.9),#修改图例位置
+#         legend.margin=margin(0,0,0,0))+#修改图例位置
+#   # annotate("text",x=3,y=max(AMF_beta_long$Value)*0.85,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")+
+#   annotate("text",x=2.5,y=(max(AMF_beta_long$Value)+(max(AMF_beta_long$Value)-min(AMF_beta_long$Value))*0.1),hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
+#   annotate("text",x=2.5+0.2,y=(max(AMF_beta_long$Value)),hjust=1,vjust=1,label=paste0("***"),size=2,color="black")
+# p2
 
-p2 <- ggplot(AMF_beta_long,aes(x=Components,y=Value,color=Type))+
-  geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
-  stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
-  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
-  scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
-  scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+p2 <- ggplot(AMF_beta,aes(x=Components,y=Observe,color=Components))+
+  geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.6,show.legend=T)+
+  scale_color_manual(values=c("gray40","gray40","gray40"))+
+  scale_fill_manual(values=c("gray40","gray40","gray40"))+
   theme_classic()+
   ylab("AMF beta diversity")+# 设置Y轴标题
   geom_vline(xintercept=1.5,linetype=2,linewidth=0.2,color="gray50",alpha=0.8)+
@@ -667,19 +817,13 @@ p2 <- ggplot(AMF_beta_long,aes(x=Components,y=Value,color=Type))+
         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
         panel.grid=element_blank(),#隐藏网格线
-        # legend.title=element_text(size=6.5),#修改图例标题大小
-        legend.title=element_blank(),
-        legend.text=element_text(size=5.5),#修改图例文本大小
-        legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
-        legend.background=element_blank(),#设置图例背景为空白
-        legend.position="inside",#修改图例位置
-        # legend.justification=c("right","top"),#修改图例位置
-        legend.position.inside=c(0.9,0.9),#修改图例位置
-        legend.margin=margin(0,0,0,0))+#修改图例位置
-  # annotate("text",x=3,y=max(AMF_beta_long$Value)*0.85,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")+
-  annotate("text",x=2.5,y=(max(AMF_beta_long$Value)+(max(AMF_beta_long$Value)-min(AMF_beta_long$Value))*0.1),hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
-  annotate("text",x=2.5+0.2,y=(max(AMF_beta_long$Value)),hjust=1,vjust=1,label=paste0("***"),size=2,color="black")
+        legend.title=element_text(size=8),#修改图例标题大小
+        legend.text=element_text(size=6.5),#修改图例文本大小
+        legend.position="none")+#修改图例位置
+  # annotate("text",x=3,y=max(plant_beta$Observe)*0.85,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")+
+  annotate("text",x=2.5,y=(max(plant_beta$Observe)+(max(plant_beta$Observe)-min(plant_beta$Observe))*0.1),hjust=1,vjust=1,label=paste0("***"),size=2,color="black")
 p2
+
 ggsave(filename="Fig5b_AMF_beta_diversity.png",plot=p2,width=89/2,height=59/2,units="mm",dpi=900)
 ggsave(filename="Fig5b_AMF_beta_diversity.pdf",plot=p2,width=89/2,height=59/2,units="mm")
 
@@ -687,38 +831,142 @@ ggsave(filename="Fig5b_AMF_beta_diversity.pdf",plot=p2,width=89/2,height=59/2,un
 interaction_beta <- subset(Beta_diversity,Beta_diversity_type=="Interaction_beta_diversity")
 x <- subset(interaction_beta,Components=="βOS")$Observe
 y <- subset(interaction_beta,Components=="βST")$Observe
+shapiro.test(x)
+shapiro.test(y)
+levene_test <- leveneTest(Observe ~ Components, data = interaction_beta)
+levene_test
 t.test(x,y,paired=T)
+
+d <- x-y
+# 进行Welch's t检验
+result_welch <- t.test(d, mu = 0, alternative = "two.sided", var.equal = FALSE)
+result_welch
+
+
 x <- subset(interaction_beta,Components=="βOS")$Observe_Euphorbia_excluded
 y <- subset(interaction_beta,Components=="βST")$Observe_Euphorbia_excluded
+shapiro.test(x)
+shapiro.test(y)
+levene_test <- leveneTest(Observe ~ Components, data = interaction_beta)
+levene_test
 t.test(x,y,paired=T)
+
+d <- x-y
+# 进行Welch's t检验
+result_welch <- t.test(d, mu = 0, alternative = "two.sided", var.equal = FALSE)
+result_welch
+
 
 x <- subset(interaction_beta,Components=="βST.h")$Observe
 y <- subset(interaction_beta,Components=="βST.l")$Observe
 z <- subset(interaction_beta,Components=="βST.lh")$Observe
+shapiro.test(x)
+shapiro.test(y)
+shapiro.test(z)
+levene_test <- leveneTest(Observe ~ Components, data = interaction_beta)
+levene_test
 t.test(x,y,paired=T)
+aov(x,y,z)
+
+d <- x-y
+# 进行Welch's t检验
+result_welch <- t.test(d, mu = 0, alternative = "two.sided", var.equal = FALSE)
+result_welch
+
+interaction_beta2 <- subset(interaction_beta,Components %in% c("βST.h","βST.l","βST.lh"))[,c(1,4,5)]
+interaction_beta2 <- as.data.frame(interaction_beta2)
+# # 进行Friedman检验
+friedman_result <- friedman.test(Observe~Components|Site,data=interaction_beta2)
+friedman_result <- friedman.test(Observe~Site|Components,data=interaction_beta2)
+
+# 使用aov函数
+anova_result <- aov(Observe~Components, data = interaction_beta2)
+summary(anova_result)
+
+# x:"βST.h";y:"βST.l";z:"βST.lh"
+wilcox.test(x, y, paired = TRUE);t.test(x,y,paired=T)
+# V = 55, p-value = 0.001953;t = 5.6994, df = 9, p-value = 0.0002945
+wilcox.test(x, z, paired = TRUE);t.test(x,z,paired=T)
+# V = 55, p-value = 0.001953;t = 9.175, df = 9, p-value = 7.292e-06
+wilcox.test(y, z, paired = TRUE);t.test(y,z,paired=T)
+# V = 51, p-value = 0.01367;t = 3.5067, df = 9, p-value = 0.006653
+
+
+
+
 
 x <- subset(interaction_beta,Components=="βST.h")$Observe_Euphorbia_excluded
 y <- subset(interaction_beta,Components=="βST.lh")$Observe_Euphorbia_excluded
 z <- subset(interaction_beta,Components=="βST.lh")$Observe_Euphorbia_excluded
+shapiro.test(x)
+shapiro.test(y)
+shapiro.test(z)
+levene_test <- leveneTest(Observe ~ Components, data = interaction_beta)
+levene_test
 t.test(x,y,paired=T)
 
+d <- x-y
+# 进行Welch's t检验
+result_welch <- t.test(d, mu = 0, alternative = "two.sided", var.equal = FALSE)
+result_welch
 
-interaction_beta_long <- pivot_longer(interaction_beta, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
-interaction_beta_long[which(interaction_beta_long$Type=="Observe"),]$Type <- "included"
-interaction_beta_long[which(interaction_beta_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
-interaction_beta_long$Type <- factor(interaction_beta_long$Type,levels=c("included","excluded"))
+# interaction_beta_long <- pivot_longer(interaction_beta, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
+# interaction_beta_long[which(interaction_beta_long$Type=="Observe"),]$Type <- "included"
+# interaction_beta_long[which(interaction_beta_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
+# interaction_beta_long$Type <- factor(interaction_beta_long$Type,levels=c("included","excluded"))
+# 
+# # 计算均值和标准差
+# interaction_beta_long.summary <- interaction_beta_long %>%
+#   group_by(Components, Type) %>%
+#   summarise(Value.mean = mean(Value),Value.sd = sd(Value))
+# 
+# p3 <- ggplot(interaction_beta_long,aes(x=Components,y=Value,color=Type))+
+#   geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+#   stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
+#   geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+#   scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
+#   scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+#   theme_classic()+
+#   ylab("Interaction beta diversity")+# 设置Y轴标题
+#   geom_vline(xintercept=1.5,linetype=2,linewidth=0.2,color="gray50",alpha=0.8)+
+#   geom_vline(xintercept=3.5,linetype=2,linewidth=0.2,color="gray50",alpha=0.8)+
+#   theme(axis.title.x=element_blank(),#修改X轴标题文本
+#         # axis.title.x=element_text(size=8),#修改X轴标题文本
+#         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
+#         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
+#         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
+#         panel.grid=element_blank(),#隐藏网格线
+#         # legend.title=element_text(size=6.5),#修改图例标题大小
+#         legend.title=element_blank(),
+#         legend.text=element_text(size=5.5),#修改图例文本大小
+#         legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
+#         legend.background=element_blank(),#设置图例背景为空白
+#         legend.position="inside",#修改图例位置
+#         # legend.justification=c("right","top"),#修改图例位置
+#         legend.position.inside=c(0.92,0.9),#修改图例位置
+#         legend.margin=margin(0,0,0,0))+#修改图例位置
+#   # annotate("text",x=2.6,y=max(interaction_beta_long$Value)*0.85,hjust=1,vjust=1,label=paste0("p > ",0.05),size=2,color="black")+
+#   # annotate("text",x=5.3,y=max(interaction_beta_long$Value)*0.85/1.2,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")+
+#   # annotate("text",x=4.8,y=max(interaction_beta_long$Value)*0.85/1.5,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")+
+#   # annotate("text",x=5.8,y=max(interaction_beta_long$Value)*0.85/4,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")
+#   annotate("text",x=2.5,y=max(interaction_beta_long$Value)*1,hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
+#   annotate("text",x=2.5+0.2,y=max(interaction_beta_long$Value)*0.9,hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
+#   annotate("text",x=5,y=max(interaction_beta_long$Value)*1,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
+#   annotate("text",x=5+0.2,y=max(interaction_beta_long$Value)*0.9,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
+#   annotate("text",x=4.5,y=max(interaction_beta_long$Value)*0.8,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
+#   annotate("text",x=4.5+0.2,y=max(interaction_beta_long$Value)*0.7,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
+#   annotate("text",x=5.5,y=max(interaction_beta_long$Value)*0.4,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
+#   annotate("text",x=5.5+0.2,y=max(interaction_beta_long$Value)*0.3,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")
+# p3
+# ggsave(filename="Fig5c_interaction_beta_diversity.png",plot=p3,width=89,height=59/2,units="mm",dpi=900)
+# ggsave(filename="Fig5c_interaction_beta_diversity.pdf",plot=p3,width=89,height=59/2,units="mm")
 
-# 计算均值和标准差
-interaction_beta_long.summary <- interaction_beta_long %>%
-  group_by(Components, Type) %>%
-  summarise(Value.mean = mean(Value),Value.sd = sd(Value))
-
-p3 <- ggplot(interaction_beta_long,aes(x=Components,y=Value,color=Type))+
-  geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
-  stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
-  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
-  scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
-  scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+p3 <- ggplot(interaction_beta,aes(x=Components,y=Observe,color=Components))+
+  geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.6,show.legend=T)+
+  scale_color_manual(values=c("gray40","gray40","gray40","gray40","gray40","gray40","black"))+
+  scale_fill_manual(values=c("gray40","gray40","gray40","gray40","gray40","gray40","black"))+
   theme_classic()+
   ylab("Interaction beta diversity")+# 设置Y轴标题
   geom_vline(xintercept=1.5,linetype=2,linewidth=0.2,color="gray50",alpha=0.8)+
@@ -738,28 +986,18 @@ p3 <- ggplot(interaction_beta_long,aes(x=Components,y=Value,color=Type))+
         # legend.justification=c("right","top"),#修改图例位置
         legend.position.inside=c(0.92,0.9),#修改图例位置
         legend.margin=margin(0,0,0,0))+#修改图例位置
-  # annotate("text",x=2.6,y=max(interaction_beta_long$Value)*0.85,hjust=1,vjust=1,label=paste0("p > ",0.05),size=2,color="black")+
-  # annotate("text",x=5.3,y=max(interaction_beta_long$Value)*0.85/1.2,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")+
-  # annotate("text",x=4.8,y=max(interaction_beta_long$Value)*0.85/1.5,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")+
-  # annotate("text",x=5.8,y=max(interaction_beta_long$Value)*0.85/4,hjust=1,vjust=1,label=paste0("p < ",0.001),size=2,color="black")
-  annotate("text",x=2.5,y=max(interaction_beta_long$Value)*1,hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
-  annotate("text",x=2.5+0.2,y=max(interaction_beta_long$Value)*0.9,hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
-  annotate("text",x=5,y=max(interaction_beta_long$Value)*1,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
-  annotate("text",x=5+0.2,y=max(interaction_beta_long$Value)*0.9,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
-  annotate("text",x=4.5,y=max(interaction_beta_long$Value)*0.8,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
-  annotate("text",x=4.5+0.2,y=max(interaction_beta_long$Value)*0.7,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
-  annotate("text",x=5.5,y=max(interaction_beta_long$Value)*0.4,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
-  annotate("text",x=5.5+0.2,y=max(interaction_beta_long$Value)*0.3,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")
+  annotate("text",x=2.5,y=max(interaction_beta$Observe)*0.9,hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
+  annotate("text",x=5,y=max(interaction_beta$Observe)*0.82,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
+  annotate("text",x=4.5,y=max(interaction_beta$Observe)*0.7,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")+
+  annotate("text",x=5.5,y=max(interaction_beta$Observe)*0.3,hjust=1,vjust=1,label=paste0("***"),size=2,color="black")
 p3
-ggsave(filename="Fig5c_interaction_beta_diversity.png",plot=p3,width=89,height=59/2,units="mm",dpi=900)
-ggsave(filename="Fig5c_interaction_beta_diversity.pdf",plot=p3,width=89,height=59/2,units="mm")
 
 p4 <- plot_grid(p1,p2,labels=c("a","b"),label_size=8,label_x=0.25,label_y=1,ncol=2,nrow=1)
 p4
 p_all <- plot_grid(p4,p3,labels=c("","c"),label_size=8,label_x=0.125,label_y=1,ncol=1,nrow=2)
 p_all
-ggsave(filename="Fig5.png",plot=p_all,width=89,height=59,units="mm",dpi=900)
-ggsave(filename="Fig5.pdf",plot=p_all,width=89,height=59,units="mm")
+ggsave(filename="Fig5_0127.png",plot=p_all,width=89,height=59,units="mm",dpi=900)
+ggsave(filename="Fig5_0127.pdf",plot=p_all,width=89,height=59,units="mm")
 
 ################################################################################
 # Fig. 6 Network index
@@ -778,29 +1016,69 @@ summary(network_index)
 WCON <- subset(network_index,Index_type=="Weighted connectance")
 x <- subset(WCON,Plot=="Eu-adjacent")$Observe
 y <- subset(WCON,Plot=="Eu-distant")$Observe
+shapiro.test(x)
+shapiro.test(y)
+levene_test <- leveneTest(Observe ~ Plot, data = WCON)
+levene_test
 t.test(x,y,paired=T)
 
-x <- subset(WCON,Plot=="Eu-adjacent")$Observe_Euphorbia_excluded
-y <- subset(WCON,Plot=="Eu-distant")$Observe_Euphorbia_excluded
-t.test(x,y,paired=T)
+# x <- subset(WCON,Plot=="Eu-adjacent")$Observe_Euphorbia_excluded
+# y <- subset(WCON,Plot=="Eu-distant")$Observe_Euphorbia_excluded
+# t.test(x,y,paired=T)
+# 
+# WCON_long <- pivot_longer(WCON, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
+# WCON_long[which(WCON_long$Type=="Observe"),]$Type <- "included"
+# WCON_long[which(WCON_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
+# WCON_long$Type <- factor(WCON_long$Type,levels=c("included","excluded"))
+# 
+# # 计算均值和标准差
+# WCON_long.summary <- WCON_long %>%
+#   group_by(Plot, Type) %>%
+#   summarise(Value.mean = mean(Value),Value.sd = sd(Value))
 
-WCON_long <- pivot_longer(WCON, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
-WCON_long[which(WCON_long$Type=="Observe"),]$Type <- "included"
-WCON_long[which(WCON_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
-WCON_long$Type <- factor(WCON_long$Type,levels=c("included","excluded"))
+# p1 <- ggplot(WCON_long,aes(x=Plot,y=Value,color=Type))+
+#   geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+#   stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
+#   geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+#   theme_classic()+
+#   scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
+#   scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+#   ylab("Weighted connectance")+# 设置Y轴标题
+#   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
+#   theme(axis.title.x=element_blank(),#修改X轴标题文本
+#         # axis.title.x=element_text(size=8),#修改X轴标题文本
+#         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
+#         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
+#         # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
+#         axis.text.x=element_blank(),#修改x轴刻度标签文本
+#         # axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
+#         panel.grid=element_blank(),#隐藏网格线
+#         # legend.title=element_text(size=6.5),#修改图例标题大小
+#         legend.title=element_blank(),#修改图例标题大小
+#         legend.text=element_text(size=5.5),#修改图例文本大小
+#         legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
+#         legend.background=element_blank(),#设置图例背景为空白
+#         legend.position="inside",#修改图例位置
+#         # legend.justification=c("right","top"),#修改图例位置
+#         legend.position.inside=c(0.9,0.9),#修改图例位置
+#         legend.margin=margin(0,0,0,0))+#修改图例位置
+#   # annotate("text",x=1.8,y=max(WCON_long$Value),hjust=1,vjust=1,label=paste0("p < ",0.01),size=2,color="black")+
+#   annotate("text",x=1.5,y=(max(WCON_long$Value)+(max(WCON_long$Value)-min(WCON_long$Value))*0.2),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")+
+#   annotate("text",x=1.5+0.2,y=(max(WCON_long$Value)+(max(WCON_long$Value)-min(WCON_long$Value))*0.1),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")
+# p1
 
-# 计算均值和标准差
-WCON_long.summary <- WCON_long %>%
-  group_by(Plot, Type) %>%
-  summarise(Value.mean = mean(Value),Value.sd = sd(Value))
-
-p1 <- ggplot(WCON_long,aes(x=Plot,y=Value,color=Type))+
-  geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
-  stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
-  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+p1 <- ggplot(WCON,aes(x=Plot,y=Observe,color=Index_type))+
+  # geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  # stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  # geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.4,show.legend=T)+
+  geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.6,show.legend=T)+
+  scale_color_manual(values=c("gray40","gray40","black"))+
+  scale_fill_manual(values=c("gray40","gray40","black"))+
   theme_classic()+
-  scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
-  scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+  # scale_color_manual(values=c("gray40","gray40","black"))+
+  # scale_fill_manual(values=c("gray40","gray40","black"))+
   ylab("Weighted connectance")+# 设置Y轴标题
   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
   theme(axis.title.x=element_blank(),#修改X轴标题文本
@@ -820,9 +1098,8 @@ p1 <- ggplot(WCON_long,aes(x=Plot,y=Value,color=Type))+
         # legend.justification=c("right","top"),#修改图例位置
         legend.position.inside=c(0.9,0.9),#修改图例位置
         legend.margin=margin(0,0,0,0))+#修改图例位置
-  # annotate("text",x=1.8,y=max(WCON_long$Value),hjust=1,vjust=1,label=paste0("p < ",0.01),size=2,color="black")+
-  annotate("text",x=1.5,y=(max(WCON_long$Value)+(max(WCON_long$Value)-min(WCON_long$Value))*0.2),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")+
-  annotate("text",x=1.5+0.2,y=(max(WCON_long$Value)+(max(WCON_long$Value)-min(WCON_long$Value))*0.1),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")
+  # annotate("text",x=1.8,y=max(WCON$Observe),hjust=1,vjust=1,label=paste0("p < ",0.01),size=2,color="black")+
+  annotate("text",x=1.5,y=(max(WCON$Observe)+(max(WCON$Observe)-min(WCON$Observe))*0.1),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")
 p1
 
 ggsave(filename="Fig6a_network_index_Weighted_connectance.png",plot=p1,width=89/2,height=59/2,units="mm",dpi=900)
@@ -832,29 +1109,69 @@ ggsave(filename="Fig6a_network_index_Weighted_connectance.pdf",plot=p1,width=89/
 Evenness <- subset(network_index,Index_type=="Interaction evenness")
 x <- subset(Evenness,Plot=="Eu-adjacent")$Observe
 y <- subset(Evenness,Plot=="Eu-distant")$Observe
+shapiro.test(x)
+shapiro.test(y)
+levene_test <- leveneTest(Observe ~ Plot, data = Evenness)
+levene_test
 t.test(x,y,paired=T)
 
-x <- subset(Evenness,Plot=="Eu-adjacent")$Observe_Euphorbia_excluded
-y <- subset(Evenness,Plot=="Eu-distant")$Observe_Euphorbia_excluded
-t.test(x,y,paired=T)
+# x <- subset(Evenness,Plot=="Eu-adjacent")$Observe_Euphorbia_excluded
+# y <- subset(Evenness,Plot=="Eu-distant")$Observe_Euphorbia_excluded
+# t.test(x,y,paired=T)
+# 
+# Evenness_long <- pivot_longer(Evenness, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
+# Evenness_long[which(Evenness_long$Type=="Observe"),]$Type <- "included"
+# Evenness_long[which(Evenness_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
+# Evenness_long$Type <- factor(Evenness_long$Type,levels=c("included","excluded"))
+# 
+# # 计算均值和标准差
+# Evenness_long.summary <- Evenness_long %>%
+#   group_by(Plot, Type) %>%
+#   summarise(Value.mean = mean(Value),Value.sd = sd(Value))
 
-Evenness_long <- pivot_longer(Evenness, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
-Evenness_long[which(Evenness_long$Type=="Observe"),]$Type <- "included"
-Evenness_long[which(Evenness_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
-Evenness_long$Type <- factor(Evenness_long$Type,levels=c("included","excluded"))
+# p2 <- ggplot(Evenness_long,aes(x=Plot,y=Value,color=Type))+
+#   geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+#   stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
+#   geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+#   theme_classic()+
+#   scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
+#   scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+#   ylab("Interaction evenness")+# 设置Y轴标题
+#   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
+#   theme(axis.title.x=element_blank(),#修改X轴标题文本
+#         # axis.title.x=element_text(size=8),#修改X轴标题文本
+#         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
+#         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
+#         # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
+#         axis.text.x=element_blank(),#修改x轴刻度标签文本
+#         # axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
+#         panel.grid=element_blank(),#隐藏网格线
+#         # legend.title=element_text(size=6.5),#修改图例标题大小
+#         legend.title=element_blank(),#修改图例标题大小
+#         legend.text=element_text(size=5.5),#修改图例文本大小
+#         legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
+#         legend.background=element_blank(),#设置图例背景为空白
+#         legend.position="inside",#修改图例位置
+#         # legend.justification=c("right","top"),#修改图例位置
+#         legend.position.inside=c(0.9,0.9),#修改图例位置
+#         legend.margin=margin(0,0,0,0))+#修改图例位置
+#   # annotate("text",x=1.8,y=max(Evenness_long$Value),hjust=1,vjust=1,label=paste0("p > ",0.05),size=2,color="black")+
+#   annotate("text",x=1.5,y=(max(Evenness_long$Value)+(max(Evenness_long$Value)-min(Evenness_long$Value))*0.2),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
+#   annotate("text",x=1.5+0.2,y=(max(Evenness_long$Value)+(max(Evenness_long$Value)-min(Evenness_long$Value))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")
+# p2
 
-# 计算均值和标准差
-Evenness_long.summary <- Evenness_long %>%
-  group_by(Plot, Type) %>%
-  summarise(Value.mean = mean(Value),Value.sd = sd(Value))
-
-p2 <- ggplot(Evenness_long,aes(x=Plot,y=Value,color=Type))+
-  geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
-  stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
-  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+p2 <- ggplot(Evenness,aes(x=Plot,y=Observe,color=Index_type))+
+  # geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  # stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  # geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.4,show.legend=T)+
+  geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.6,show.legend=T)+
+  scale_color_manual(values=c("gray40","gray40","black"))+
+  scale_fill_manual(values=c("gray40","gray40","black"))+
   theme_classic()+
-  scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
-  scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+  # scale_color_manual(values=c("gray40","gray40","black"))+
+  # scale_fill_manual(values=c("gray40","gray40","black"))+
   ylab("Interaction evenness")+# 设置Y轴标题
   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
   theme(axis.title.x=element_blank(),#修改X轴标题文本
@@ -874,9 +1191,8 @@ p2 <- ggplot(Evenness_long,aes(x=Plot,y=Value,color=Type))+
         # legend.justification=c("right","top"),#修改图例位置
         legend.position.inside=c(0.9,0.9),#修改图例位置
         legend.margin=margin(0,0,0,0))+#修改图例位置
-  # annotate("text",x=1.8,y=max(Evenness_long$Value),hjust=1,vjust=1,label=paste0("p > ",0.05),size=2,color="black")+
-  annotate("text",x=1.5,y=(max(Evenness_long$Value)+(max(Evenness_long$Value)-min(Evenness_long$Value))*0.2),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")+
-  annotate("text",x=1.5+0.2,y=(max(Evenness_long$Value)+(max(Evenness_long$Value)-min(Evenness_long$Value))*0.1),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")
+  # annotate("text",x=1.8,y=max(Evenness$Observe),hjust=1,vjust=1,label=paste0("p > ",0.05),size=2,color="black")+
+  annotate("text",x=1.5,y=(max(Evenness$Observe)+(max(Evenness$Observe)-min(Evenness$Observe))*0.2),hjust=1,vjust=1,label=paste0("NS"),size=2,color="black")
 p2
 
 ggsave(filename="Fig6b_network_index_evenness.png",plot=p2,width=89/2,height=59/2,units="mm",dpi=900)
@@ -886,29 +1202,69 @@ ggsave(filename="Fig6b_network_index_evenness.pdf",plot=p2,width=89/2,height=59/
 WNODF <- subset(network_index,Index_type=="Weighted NODF")
 x <- subset(WNODF,Plot=="Eu-adjacent")$Observe
 y <- subset(WNODF,Plot=="Eu-distant")$Observe
+shapiro.test(x)
+shapiro.test(y)
+levene_test <- leveneTest(Observe ~ Plot, data = WNODF)
+levene_test
 t.test(x,y,paired=T)
 
-x <- subset(WNODF,Plot=="Eu-adjacent")$Observe_Euphorbia_excluded
-y <- subset(WNODF,Plot=="Eu-distant")$Observe_Euphorbia_excluded
-t.test(x,y,paired=T)
+# x <- subset(WNODF,Plot=="Eu-adjacent")$Observe_Euphorbia_excluded
+# y <- subset(WNODF,Plot=="Eu-distant")$Observe_Euphorbia_excluded
+# t.test(x,y,paired=T)
+# 
+# WNODF_long <- pivot_longer(WNODF, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
+# WNODF_long[which(WNODF_long$Type=="Observe"),]$Type <- "included"
+# WNODF_long[which(WNODF_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
+# WNODF_long$Type <- factor(WNODF_long$Type,levels=c("included","excluded"))
+# 
+# # 计算均值和标准差
+# WNODF_long.summary <- WNODF_long %>%
+#   group_by(Plot, Type) %>%
+#   summarise(Value.mean = mean(Value),Value.sd = sd(Value))
 
-WNODF_long <- pivot_longer(WNODF, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
-WNODF_long[which(WNODF_long$Type=="Observe"),]$Type <- "included"
-WNODF_long[which(WNODF_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
-WNODF_long$Type <- factor(WNODF_long$Type,levels=c("included","excluded"))
+# p3 <- ggplot(WNODF_long,aes(x=Plot,y=Value,color=Type))+
+#   geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+#   stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
+#   geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+#   theme_classic()+
+#   scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
+#   scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+#   ylab("Weighted NODF")+# 设置Y轴标题
+#   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
+#   scale_y_continuous(labels = function(x) sprintf("%03d", x))+
+#   theme(axis.title.x=element_blank(),#修改X轴标题文本
+#         # axis.title.x=element_text(size=8),#修改X轴标题文本
+#         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
+#         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
+#         # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
+#         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
+#         panel.grid=element_blank(),#隐藏网格线
+#         # legend.title=element_text(size=6.5),#修改图例标题大小
+#         legend.title=element_blank(),#修改图例标题大小
+#         legend.text=element_text(size=5.5),#修改图例文本大小
+#         legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
+#         legend.background=element_blank(),#设置图例背景为空白
+#         legend.position="inside",#修改图例位置
+#         # legend.justification=c("right","top"),#修改图例位置
+#         legend.position.inside=c(0.9,0.9),#修改图例位置
+#         legend.margin=margin(0,0,0,0))+#修改图例位置
+#   # annotate("text",x=1.8,y=max(WNODF_long$Value),hjust=1,vjust=1,label=paste0("p < ",0.01),size=2,color="black")+
+#   annotate("text",x=1.5,y=(max(WNODF_long$Value)+(max(WNODF_long$Value)-min(WNODF_long$Value))*0.2),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")+
+#   annotate("text",x=1.5+0.2,y=(max(WNODF_long$Value)+(max(WNODF_long$Value)-min(WNODF_long$Value))*0.1),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")
+# p3
 
-# 计算均值和标准差
-WNODF_long.summary <- WNODF_long %>%
-  group_by(Plot, Type) %>%
-  summarise(Value.mean = mean(Value),Value.sd = sd(Value))
-
-p3 <- ggplot(WNODF_long,aes(x=Plot,y=Value,color=Type))+
-  geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
-  stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
-  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+p3 <- ggplot(WNODF,aes(x=Plot,y=Observe,color=Index_type))+
+  # geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  # stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  # geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.4,show.legend=T)+
+  geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.6,show.legend=T)+
+  scale_color_manual(values=c("gray40","gray40","black"))+
+  scale_fill_manual(values=c("gray40","gray40","black"))+
   theme_classic()+
-  scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
-  scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+  # scale_color_manual(values=c("gray40","gray40","black"))+
+  # scale_fill_manual(values=c("gray40","gray40","black"))+
   ylab("Weighted NODF")+# 设置Y轴标题
   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
   scale_y_continuous(labels = function(x) sprintf("%03d", x))+
@@ -928,9 +1284,8 @@ p3 <- ggplot(WNODF_long,aes(x=Plot,y=Value,color=Type))+
         # legend.justification=c("right","top"),#修改图例位置
         legend.position.inside=c(0.9,0.9),#修改图例位置
         legend.margin=margin(0,0,0,0))+#修改图例位置
-  # annotate("text",x=1.8,y=max(WNODF_long$Value),hjust=1,vjust=1,label=paste0("p < ",0.01),size=2,color="black")+
-  annotate("text",x=1.5,y=(max(WNODF_long$Value)+(max(WNODF_long$Value)-min(WNODF_long$Value))*0.2),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")+
-  annotate("text",x=1.5+0.2,y=(max(WNODF_long$Value)+(max(WNODF_long$Value)-min(WNODF_long$Value))*0.1),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")
+  # annotate("text",x=1.8,y=max(WNODF$Observe),hjust=1,vjust=1,label=paste0("p < ",0.01),size=2,color="black")+
+  annotate("text",x=1.5,y=(max(WNODF$Observe)+(max(WNODF$Observe)-min(WNODF$Observe))*0.2),hjust=1,vjust=1,label=paste0("**"),size=2,color="black")
 p3
 
 ggsave(filename="Fig6c_network_index_Weighted_NODF.png",plot=p3,width=89/2,height=59/2,units="mm",dpi=900)
@@ -940,29 +1295,68 @@ ggsave(filename="Fig6c_network_index_Weighted_NODF.pdf",plot=p3,width=89/2,heigh
 WMOD <- subset(network_index,Index_type=="Weighted modularity")
 x <- subset(WMOD,Plot=="Eu-adjacent")$Observe
 y <- subset(WMOD,Plot=="Eu-distant")$Observe
+shapiro.test(x)
+shapiro.test(y)
+levene_test <- leveneTest(Observe ~ Plot, data = WMOD)
+levene_test
 t.test(x,y,paired=T)
 
-x <- subset(WMOD,Plot=="Eu-adjacent")$Observe_Euphorbia_excluded
-y <- subset(WMOD,Plot=="Eu-distant")$Observe_Euphorbia_excluded
-t.test(x,y,paired=T)
+# x <- subset(WMOD,Plot=="Eu-adjacent")$Observe_Euphorbia_excluded
+# y <- subset(WMOD,Plot=="Eu-distant")$Observe_Euphorbia_excluded
+# t.test(x,y,paired=T)
+# 
+# WMOD_long <- pivot_longer(WMOD, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
+# WMOD_long[which(WMOD_long$Type=="Observe"),]$Type <- "included"
+# WMOD_long[which(WMOD_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
+# WMOD_long$Type <- factor(WMOD_long$Type,levels=c("included","excluded"))
+# 
+# # 计算均值和标准差
+# WMOD_long.summary <- WMOD_long %>%
+#   group_by(Plot, Type) %>%
+#   summarise(Value.mean = mean(Value),Value.sd = sd(Value))
 
-WMOD_long <- pivot_longer(WMOD, cols = c(Observe, Observe_Euphorbia_excluded), names_to = "Type", values_to = "Value")
-WMOD_long[which(WMOD_long$Type=="Observe"),]$Type <- "included"
-WMOD_long[which(WMOD_long$Type=="Observe_Euphorbia_excluded"),]$Type <- "excluded"
-WMOD_long$Type <- factor(WMOD_long$Type,levels=c("included","excluded"))
+# p4 <- ggplot(WMOD_long,aes(x=Plot,y=Value,color=Type))+
+#   geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+#   stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
+#   geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+#   theme_classic()+
+#   scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
+#   scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+#   ylab("Weighted modularity")+# 设置Y轴标题
+#   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
+#   theme(axis.title.x=element_blank(),#修改X轴标题文本
+#         # axis.title.x=element_text(size=8),#修改X轴标题文本
+#         axis.title.y=element_text(size=8,angle=90),#修改y轴标题文本
+#         axis.text.y=element_text(size=6.5),#修改y轴刻度标签文本
+#         # axis.line.x = element_line(arrow = arrow(length = unit(0.2,"lines"))),
+#         axis.text.x=element_text(size=6.5),#修改x轴刻度标签文本
+#         panel.grid=element_blank(),#隐藏网格线
+#         # legend.title=element_text(size=6.5),#修改图例标题大小
+#         legend.title=element_blank(),#修改图例标题大小
+#         legend.text=element_text(size=5.5),#修改图例文本大小
+#         legend.key.size=unit(0.1,"lines"),#缩小图例符号的大小
+#         legend.background=element_blank(),#设置图例背景为空白
+#         legend.position="inside",#修改图例位置
+#         # legend.justification=c("right","top"),#修改图例位置
+#         legend.position.inside=c(0.9,0.9),#修改图例位置
+#         legend.margin=margin(0,0,0,0))+#修改图例位置
+#   # annotate("text",x=1.8,y=max(WMOD_long$Value),hjust=1,vjust=1,label=paste0("p < ",0.05),size=2,color="black")+
+#   annotate("text",x=1.5,y=(max(WMOD_long$Value)+(max(WMOD_long$Value)-min(WMOD_long$Value))*0.2),hjust=1,vjust=1,label=paste0("*"),size=2,color="black")+
+#   annotate("text",x=1.5+0.2,y=(max(WMOD_long$Value)+(max(WMOD_long$Value)-min(WMOD_long$Value))*0.1),hjust=1,vjust=1,label=paste0("*"),size=2,color="black")
+# p4
 
-# 计算均值和标准差
-WMOD_long.summary <- WMOD_long %>%
-  group_by(Plot, Type) %>%
-  summarise(Value.mean = mean(Value),Value.sd = sd(Value))
-
-p4 <- ggplot(WMOD_long,aes(x=Plot,y=Value,color=Type))+
-  geom_boxplot(width=0.4,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
-  stat_boxplot(geom="errorbar",width=0.4,linewidth=0.25,position=position_dodge(0.5))+
-  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.45,dodge.width=0.5),alpha=0.6,show.legend=T)+
+p4 <- ggplot(WMOD,aes(x=Plot,y=Observe,color=Index_type))+
+  # geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  # stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  # geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.4,show.legend=T)+
+  geom_boxplot(width=0.225,linewidth=0.25,outliers=F,alpha=1,show.legend=T,position=position_dodge(0.5))+
+  stat_boxplot(geom="errorbar",width=0.225,linewidth=0.25,position=position_dodge(0.5))+
+  geom_jitter(shape=16,size=0.6,position=position_jitterdodge(jitter.height=0,jitter.width=0.8,dodge.width=0.5),alpha=0.6,show.legend=T)+
+  scale_color_manual(values=c("gray40","gray40","black"))+
+  scale_fill_manual(values=c("gray40","gray40","black"))+
   theme_classic()+
-  scale_color_manual(values=c("#bc40bf","#4BA465","black"))+
-  scale_fill_manual(values=c("#bc40bf","#4BA465","black"))+
+  # scale_color_manual(values=c("gray40","gray40","black"))+
+  # scale_fill_manual(values=c("gray40","gray40","black"))+
   ylab("Weighted modularity")+# 设置Y轴标题
   # scale_x_discrete(breaks=c("Eu-adjacent","Eu-distant"),labels=c("Eu-adjacent", "Eu-distant"))+
   theme(axis.title.x=element_blank(),#修改X轴标题文本
@@ -981,9 +1375,8 @@ p4 <- ggplot(WMOD_long,aes(x=Plot,y=Value,color=Type))+
         # legend.justification=c("right","top"),#修改图例位置
         legend.position.inside=c(0.9,0.9),#修改图例位置
         legend.margin=margin(0,0,0,0))+#修改图例位置
-  # annotate("text",x=1.8,y=max(WMOD_long$Value),hjust=1,vjust=1,label=paste0("p < ",0.05),size=2,color="black")+
-  annotate("text",x=1.5,y=(max(WMOD_long$Value)+(max(WMOD_long$Value)-min(WMOD_long$Value))*0.2),hjust=1,vjust=1,label=paste0("*"),size=2,color="black")+
-  annotate("text",x=1.5+0.2,y=(max(WMOD_long$Value)+(max(WMOD_long$Value)-min(WMOD_long$Value))*0.1),hjust=1,vjust=1,label=paste0("*"),size=2,color="black")
+  # annotate("text",x=1.8,y=max(WMOD$Observe),hjust=1,vjust=1,label=paste0("p < ",0.05),size=2,color="black")+
+  annotate("text",x=1.5,y=(max(WMOD$Observe)+(max(WMOD$Observe)-min(WMOD$Observe))*0.2),hjust=1,vjust=1,label=paste0("*"),size=2,color="black")
 p4
 
 ggsave(filename="Fig6d_network_index_Weighted_modularity.png",plot=p4,width=89/2,height=59/2,units="mm",dpi=900)
@@ -991,8 +1384,8 @@ ggsave(filename="Fig6d_network_index_Weighted_modularity.pdf",plot=p4,width=89/2
 
 p_all <- plot_grid(p1,p2,p3,p4,labels=c("a","b","c","d"),label_size=8,label_x=0.28,label_y=1,ncol=2,nrow=2)
 p_all
-ggsave(filename="Fig6.png",plot=p_all,width=89,height=59,units="mm",dpi=900)
-ggsave(filename="Fig6.pdf",plot=p_all,width=89,height=59,units="mm")
+ggsave(filename="Fig6_0209.png",plot=p_all,width=89,height=59,units="mm",dpi=900)
+ggsave(filename="Fig6_0209.pdf",plot=p_all,width=89,height=59,units="mm")
 
 ###############
 # simulation
