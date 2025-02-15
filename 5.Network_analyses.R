@@ -12,7 +12,7 @@ library(ggplot2)
 rm(list=ls())
 
 set.seed(123)
-network_data <- read.read_excel("data/network_matrix.xlsx", sheet="Sheet1")
+network_data <- read_excel("data/network_matrix.xlsx", sheet="Sheet1")
 # network_data <- subset(network_data,Plant_Species!="Euphorbia_jolkinii")
 head(network_data)
 
