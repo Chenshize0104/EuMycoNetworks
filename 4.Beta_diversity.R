@@ -4,6 +4,7 @@
 # 加载包
 library(readxl)
 library(tidyverse)
+library(bipartite)
 library(betapart)
 library(betalink)
 
